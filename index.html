@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Assistant Prompt Generator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      color: white;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .container { max-width: 700px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 40px; padding-top: 20px; }
+    .header h1 { font-size: 32px; margin-bottom: 8px; background: linear-gradient(90deg, #10b981, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: #94a3b8; font-size: 16px; }
+    .chapter-nav { display: flex; gap: 8px; margin-bottom: 32px; flex-wrap: wrap; justify-content: center; }
+    .chapter-dot { width: 12px; height: 12px; border-radius: 50%; background: #334155; transition: all 0.3s; }
+    .chapter-dot.active { background: #10b981; transform: scale(1.2); }
+    .chapter-dot.completed { background: #059669; }
+    .chapter-label { font-size: 12px; color: #64748b; text-align: center; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    .chapter-title { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+    .chapter-desc { color: #94a3b8; margin-bottom: 32px; font-size: 15px; }
+    .progress-bar { margin-bottom: 24px; }
+    .progress-info { display: flex; justify-content: space-between; font-size: 14px; color: #94a3b8; margin-bottom: 8px; }
+    .progress-track { height: 4px; background: #334155; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #06b6d4); transition: width 0.3s; }
+    .question { font-size: 20px; font-weight: 500; margin-bottom: 20px; }
+    .question-hint { font-size: 14px; color: #64748b; margin-top: -12px; margin-bottom: 20px; }
+    .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .option {
+      width: 100%; text-align: left; padding: 14px 16px; border-radius: 10px;
+      border: 1px solid #334155; background: rgba(30, 41, 59, 0.5);
+      color: #cbd5e1; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px;
+      font-size: 15px;
+    }
+    .option:hover { border-color: #64748b; background: rgba(30, 41, 59, 0.8); }
+    .option.selected { background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: white; }
+    .radio {
+      width: 20px; height: 20px; border-radius: 50%; border: 2px solid #64748b;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .option.selected .radio { border-color: #10b981; background: #10b981; }
+    .checkbox { width: 20px; height: 20px; border-radius: 4px; border: 2px solid #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .option.selected .checkbox { border-color: #10b981; background: #10b981; }
+    .checkmark { display: none; color: white; font-size: 14px; }
+    .option.selected .checkmark { display: block; }
+    .radio-dot { width: 8px; height: 8px; background: white; border-radius: 50%; display: none; }
+    .option.selected .radio-dot { display: block; }
+    .other-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: #cbd5e1; font-size: 15px;
+    }
+    .other-input::placeholder { color: #64748b; }
+    .hint { color: #64748b; font-size: 13px; margin-top: -16px; margin-bottom: 24px; }
+    .nav { display: flex; gap: 12px; }
+    .btn {
+      padding: 14px 28px; border-radius: 10px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; border: none;
+    }
+    .btn-back { background: #334155; color: white; }
+    .btn-back:hover { background: #475569; }
+    .btn-back:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-next {
+      flex: 1; background: linear-gradient(90deg, #059669, #0891b2);
+      color: white;
+    }
+    .btn-next:hover { background: linear-gradient(90deg, #10b981, #06b6d4); }
+    .btn-next:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-skip { background: transparent; color: #64748b; border: 1px solid #334155; }
+    .btn-skip:hover { border-color: #64748b; color: #94a3b8; }
+    .result { margin-bottom: 24px; }
+    .result h1 { font-size: 28px; margin-bottom: 8px; }
+    .result p { color: #94a3b8; }
+    .prompt-box {
+      background: rgba(30, 41, 59, 0.5); border-radius: 12px; padding: 24px;
+      border: 1px solid #334155; margin-bottom: 24px; max-height: 50vh; overflow-y: auto;
+    }
+    .prompt-text {
+      white-space: pre-wrap; font-size: 13px; color: #cbd5e1;
+      font-family: 'Monaco', 'Menlo', monospace; line-height: 1.7;
+    }
+    .btn-copy { background: #059669; color: white; flex: 1; }
+    .btn-copy:hover { background: #10b981; }
+    .btn-reset { background: #334155; color: white; }
+    .btn-reset:hover { background: #475569; }
+    .start-screen { text-align: center; padding: 60px 20px; }
+    .start-screen h1 { font-size: 42px; margin-bottom: 16px; background: linear-gradient(90deg, #10b981, #06b6d4, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .start-screen p { color: #94a3b8; font-size: 18px; margin-bottom: 40px; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .start-screen .btn { font-size: 18px; padding: 18px 48px; }
+    .time-estimate { display: inline-flex; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.1); padding: 8px 16px; border-radius: 20px; color: #10b981; font-size: 14px; margin-bottom: 32px; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; text-align: left; }
+    .feature { background: rgba(30, 41, 59, 0.5); padding: 20px; border-radius: 12px; border: 1px solid #334155; }
+    .feature-icon { font-size: 24px; margin-bottom: 8px; }
+    .feature h3 { font-size: 16px; margin-bottom: 4px; }
+    .feature p { font-size: 13px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="container" id="app"></div>
+  <script>
+const chapters = [
+  { id: 'role', title: 'Who You Are', desc: 'Tell us about your profession and expertise' },
+  { id: 'domain', title: 'Your Domain', desc: 'Your specific area of focus and tools' },
+  { id: 'style', title: 'Your Style', desc: 'How you think and work' },
+  { id: 'communication', title: 'Communication', desc: 'How you like information delivered' },
+  { id: 'decisions', title: 'Decision Making', desc: 'How you prefer to handle choices' },
+  { id: 'problem-solving', title: 'Problem Solving', desc: 'Your approach to challenges' },
+  { id: 'output', title: 'Output Preferences', desc: 'How you want responses formatted' },
+  { id: 'peeves', title: 'Final Touches', desc: 'Pet peeves and special requests' },
+];
+
+const baseQuestions = [
+  // Chapter 1: Role
+  { id: 'profession', chapter: 'role', question: 'What\'s your profession?', options: [
+    { value: 'tech', label: '💻 Technology / Software' },
+    { value: 'business', label: '📊 Business / Corporate' },
+    { value: 'creative', label: '🎨 Creative / Design' },
+    { value: 'legal', label: '⚖️ Legal' },
+    { value: 'medical', label: '🏥 Medical / Healthcare' },
+    { value: 'academic', label: '📚 Academic / Research' },
+    { value: 'marketing', label: '📣 Marketing / Communications' },
+    { value: 'finance', label: '💰 Finance / Accounting' },
+    { value: 'education', label: '🎓 Education / Training' },
+    { value: 'consulting', label: '🤝 Consulting / Advisory' },
+    { value: 'student', label: '📖 Student' },
+    { value: 'personal', label: '🏠 Personal Use' },
+  ], allowOther: true },
+  
+  // Tech sub-roles
+  { id: 'tech-role', chapter: 'role', condition: { profession: 'tech' }, question: 'What type of tech role?', options: [
+    { value: 'devops-mlops', label: 'DevOps / MLOps / Platform' },
+    { value: 'backend', label: 'Backend Engineer' },
+    { value: 'frontend', label: 'Frontend Engineer' },
+    { value: 'fullstack', label: 'Fullstack Engineer' },
+    { value: 'ml-ai', label: 'ML / AI Engineer' },
+    { value: 'data-engineer', label: 'Data Engineer' },
+    { value: 'data-scientist', label: 'Data Scientist' },
+    { value: 'mobile', label: 'Mobile Developer' },
+    { value: 'security', label: 'Security Engineer' },
+    { value: 'architect', label: 'Solutions / Cloud Architect' },
+    { value: 'product', label: 'Product Manager (Technical)' },
+    { value: 'qa', label: 'QA / Test Engineer' },
+  ], allowOther: true },
+  
+  // Business sub-roles
+  { id: 'business-role', chapter: 'role', condition: { profession: 'business' }, question: 'What type of business role?', options: [
+    { value: 'executive', label: 'Executive / C-Suite' },
+    { value: 'manager', label: 'Manager / Team Lead' },
+    { value: 'analyst', label: 'Business Analyst' },
+    { value: 'operations', label: 'Operations' },
+    { value: 'hr', label: 'HR / People' },
+    { value: 'strategy', label: 'Strategy' },
+    { value: 'pm', label: 'Project Manager' },
+    { value: 'entrepreneur', label: 'Entrepreneur / Founder' },
+  ], allowOther: true },
+  
+  // Creative sub-roles
+  { id: 'creative-role', chapter: 'role', condition: { profession: 'creative' }, question: 'What type of creative role?', options: [
+    { value: 'writer', label: 'Writer / Author' },
+    { value: 'copywriter', label: 'Copywriter' },
+    { value: 'designer-ui', label: 'UI/UX Designer' },
+    { value: 'designer-graphic', label: 'Graphic Designer' },
+    { value: 'video', label: 'Video / Film' },
+    { value: 'music', label: 'Music / Audio' },
+    { value: 'photographer', label: 'Photographer' },
+    { value: 'content-creator', label: 'Content Creator' },
+  ], allowOther: true },
+  
+  // Legal sub-roles
+  { id: 'legal-role', chapter: 'role', condition: { profession: 'legal' }, question: 'What type of legal role?', options: [
+    { value: 'attorney', label: 'Attorney / Lawyer' },
+    { value: 'paralegal', label: 'Paralegal' },
+    { value: 'corporate-counsel', label: 'Corporate Counsel' },
+    { value: 'compliance', label: 'Compliance Officer' },
+    { value: 'legal-ops', label: 'Legal Operations' },
+  ], allowOther: true },
+  
+  // Experience level
+  { id: 'experience', chapter: 'role', question: 'Experience level in your field?', options: [
+    { value: 'junior', label: '1-3 years - Building foundations' },
+    { value: 'mid', label: '3-6 years - Solid practitioner' },
+    { value: 'senior', label: '6-10 years - Senior / Lead' },
+    { value: 'expert', label: '10+ years - Expert / Principal' },
+    { value: 'student', label: 'Student / Learning' },
+  ]},
+  
+  // Chapter 2: Domain - Tech
+  { id: 'tech-stack', chapter: 'domain', condition: { profession: 'tech' }, question: 'Your tech stack (select all)', hint: 'Pick everything you work with regularly', options: [
+    { value: 'python', label: 'Python' },
+    { value: 'javascript', label: 'JavaScript / TypeScript' },
+    { value: 'go', label: 'Go' },
+    { value: 'rust', label: 'Rust' },
+    { value: 'java', label: 'Java / Kotlin' },
+    { value: 'csharp', label: 'C# / .NET' },
+    { value: 'cpp', label: 'C / C++' },
+    { value: 'ruby', label: 'Ruby' },
+    { value: 'php', label: 'PHP' },
+    { value: 'sql', label: 'SQL' },
+  ], multiple: true, allowOther: true },
+  
+  { id: 'tech-tools', chapter: 'domain', condition: { profession: 'tech' }, question: 'Tools & platforms (select all)', options: [
+    { value: 'k8s', label: 'Kubernetes' },
+    { value: 'docker', label: 'Docker' },
+    { value: 'aws', label: 'AWS' },
+    { value: 'gcp', label: 'GCP' },
+    { value: 'azure', label: 'Azure' },
+    { value: 'terraform', label: 'Terraform / IaC' },
+    { value: 'cicd', label: 'CI/CD (GitHub Actions, GitLab, etc.)' },
+    { value: 'git', label: 'Git' },
+    { value: 'linux', label: 'Linux' },
+    { value: 'databases', label: 'Databases (Postgres, MongoDB, Redis)' },
+  ], multiple: true, allowOther: true },
+  
+  // Domain - Business
+  { id: 'business-domain', chapter: 'domain', condition: { profession: 'business' }, question: 'Your business domain (select all)', options: [
+    { value: 'strategy', label: 'Strategy & Planning' },
+    { value: 'operations', label: 'Operations & Process' },
+    { value: 'finance-biz', label: 'Financial Analysis' },
+    { value: 'project-mgmt', label: 'Project Management' },
+    { value: 'stakeholder', label: 'Stakeholder Management' },
+    { value: 'reporting', label: 'Reporting & Presentations' },
+    { value: 'negotiations', label: 'Negotiations' },
+  ], multiple: true, allowOther: true },
+  
+  // Domain - Creative
+  { id: 'creative-domain', chapter: 'domain', condition: { profession: 'creative' }, question: 'Your creative focus (select all)', options: [
+    { value: 'longform', label: 'Long-form content' },
+    { value: 'shortform', label: 'Short-form / Social' },
+    { value: 'technical-writing', label: 'Technical writing' },
+    { value: 'storytelling', label: 'Storytelling / Narrative' },
+    { value: 'branding', label: 'Branding' },
+    { value: 'ux-writing', label: 'UX Writing' },
+    { value: 'seo', label: 'SEO Content' },
+    { value: 'scripts', label: 'Scripts / Screenwriting' },
+  ], multiple: true, allowOther: true },
+  
+  // Domain - Legal  
+  { id: 'legal-domain', chapter: 'domain', condition: { profession: 'legal' }, question: 'Your practice areas (select all)', options: [
+    { value: 'corporate', label: 'Corporate / M&A' },
+    { value: 'litigation', label: 'Litigation' },
+    { value: 'ip', label: 'Intellectual Property' },
+    { value: 'employment', label: 'Employment Law' },
+    { value: 'contracts', label: 'Contracts' },
+    { value: 'regulatory', label: 'Regulatory / Compliance' },
+    { value: 'privacy', label: 'Privacy / Data Protection' },
+    { value: 'real-estate', label: 'Real Estate' },
+  ], multiple: true, allowOther: true },
+  
+  // Domain - Finance
+  { id: 'finance-domain', chapter: 'domain', condition: { profession: 'finance' }, question: 'Your finance focus (select all)', options: [
+    { value: 'accounting', label: 'Accounting' },
+    { value: 'fp&a', label: 'FP&A / Budgeting' },
+    { value: 'investments', label: 'Investments / Portfolio' },
+    { value: 'banking', label: 'Banking' },
+    { value: 'tax', label: 'Tax' },
+    { value: 'audit', label: 'Audit' },
+    { value: 'risk', label: 'Risk Management' },
+  ], multiple: true, allowOther: true },
+  
+  // Domain - Marketing
+  { id: 'marketing-domain', chapter: 'domain', condition: { profession: 'marketing' }, question: 'Your marketing focus (select all)', options: [
+    { value: 'digital', label: 'Digital Marketing' },
+    { value: 'content-mkt', label: 'Content Marketing' },
+    { value: 'social', label: 'Social Media' },
+    { value: 'brand', label: 'Brand Strategy' },
+    { value: 'analytics', label: 'Marketing Analytics' },
+    { value: 'email', label: 'Email Marketing' },
+    { value: 'seo-sem', label: 'SEO / SEM' },
+    { value: 'pr', label: 'PR / Communications' },
+  ], multiple: true, allowOther: true },
+  
+  // Domain - Academic
+  { id: 'academic-domain', chapter: 'domain', condition: { profession: 'academic' }, question: 'Your field (select all)', options: [
+    { value: 'stem', label: 'STEM' },
+    { value: 'social-sciences', label: 'Social Sciences' },
+    { value: 'humanities', label: 'Humanities' },
+    { value: 'medicine', label: 'Medicine / Life Sciences' },
+    { value: 'business-acad', label: 'Business / Economics' },
+    { value: 'law-acad', label: 'Law' },
+    { value: 'arts', label: 'Arts' },
+  ], multiple: true, allowOther: true },
+  
+  // Domain - General (for personal, student, etc.)
+  { id: 'general-interests', chapter: 'domain', condition: { profession: ['personal', 'student', 'education'] }, question: 'What do you mainly use AI for? (select all)', options: [
+    { value: 'writing', label: 'Writing & Editing' },
+    { value: 'research', label: 'Research & Learning' },
+    { value: 'coding-hobby', label: 'Coding / Tech projects' },
+    { value: 'creative-hobby', label: 'Creative projects' },
+    { value: 'productivity', label: 'Productivity & Organization' },
+    { value: 'analysis', label: 'Analysis & Problem Solving' },
+    { value: 'brainstorming', label: 'Brainstorming & Ideas' },
+  ], multiple: true, allowOther: true },
+  
+  // Chapter 3: Style
+  { id: 'thinking-style', chapter: 'style', question: 'How would you describe yourself? (select all that apply)', options: [
+    { value: 'overthinker', label: '🔄 Overthinker - I analyze too much, need a push' },
+    { value: 'perfectionist', label: '✨ Perfectionist - I want the "right" answer' },
+    { value: 'decisive', label: '⚡ Decisive - I move fast, just need info' },
+    { value: 'cautious', label: '🎯 Cautious - I weigh options carefully' },
+    { value: 'explorer', label: '🧭 Explorer - I want to see all possibilities' },
+    { value: 'pragmatic', label: '🔨 Pragmatic - Whatever works, ship it' },
+    { value: 'curious', label: '🔍 Curious - I love understanding the "why"' },
+  ], multiple: true },
+  
+  { id: 'confidence', chapter: 'style', question: 'How confident are you in your domain?', options: [
+    { value: 'expert', label: 'Expert - Treat me as a peer, skip the basics' },
+    { value: 'confident', label: 'Confident - I know my stuff but have gaps' },
+    { value: 'growing', label: 'Growing - Solid foundation, still learning' },
+    { value: 'learning', label: 'Learning - Appreciate more guidance' },
+  ]},
+  
+  { id: 'pace', chapter: 'style', question: 'Your preferred pace?', options: [
+    { value: 'ship-it', label: '🚀 Ship it - Done is better than perfect' },
+    { value: 'balanced', label: '⚖️ Balanced - Good enough, iterate later' },
+    { value: 'thorough', label: '🔬 Thorough - Get it right first time' },
+    { value: 'depends', label: '📊 Depends - Tell me when to slow down' },
+  ]},
+  
+  // Chapter 4: Communication
+  { id: 'verbosity', chapter: 'communication', question: 'How verbose should responses be?', options: [
+    { value: 'minimal', label: 'Minimal - Just the answer, nothing extra' },
+    { value: 'terse', label: 'Terse - Answer first, brief explanation after' },
+    { value: 'balanced', label: 'Balanced - Moderate explanations' },
+    { value: 'detailed', label: 'Detailed - Thorough with context' },
+  ]},
+  
+  { id: 'tone', chapter: 'communication', question: 'Preferred tone?', options: [
+    { value: 'casual', label: '😎 Casual - Like a smart coworker' },
+    { value: 'professional', label: '👔 Professional but friendly' },
+    { value: 'formal', label: '📋 Formal and structured' },
+    { value: 'direct', label: '🎯 Direct and blunt' },
+    { value: 'warm', label: '🤗 Warm and encouraging' },
+  ]},
+  
+  { id: 'emoji', chapter: 'communication', question: 'Emoji usage?', options: [
+    { value: 'never', label: 'Never - Keep it clean' },
+    { value: 'rare', label: 'Rarely - Only for emphasis' },
+    { value: 'moderate', label: 'Moderate - Adds personality' },
+    { value: 'frequent', label: 'Frequently - I like visual cues' },
+  ]},
+  
+  { id: 'language', chapter: 'communication', question: 'Language preferences?', hint: 'Any specific language or locale?', options: [
+    { value: 'english-us', label: 'English (US)' },
+    { value: 'english-uk', label: 'English (UK)' },
+    { value: 'match-me', label: 'Match my language automatically' },
+  ], allowOther: true },
+  
+  // Chapter 5: Decision Making
+  { id: 'options-handling', chapter: 'decisions', question: 'When there are multiple valid approaches:', options: [
+    { value: 'pick-one', label: 'Pick the best, 1-2 sentence reason. Move on.' },
+    { value: 'pick-mention', label: 'Pick one but briefly mention alternatives' },
+    { value: 'show-few', label: 'Show 2-3 options with trade-offs' },
+    { value: 'comprehensive', label: 'Comprehensive comparison of options' },
+  ]},
+  
+  { id: 'when-stuck', chapter: 'decisions', question: 'If I seem stuck or spinning:', options: [
+    { value: 'blunt', label: '🔨 Be blunt: "This doesn\'t matter. Do X."' },
+    { value: 'nudge', label: '👉 Nudge me with a clear recommendation' },
+    { value: 'framework', label: '📋 Give me a quick decision framework' },
+    { value: 'let-me', label: '🤔 Let me work through it myself' },
+  ]},
+  
+  { id: 'risk-tolerance', chapter: 'decisions', question: 'Your risk tolerance?', options: [
+    { value: 'conservative', label: 'Conservative - Tried and true approaches' },
+    { value: 'moderate', label: 'Moderate - Reasonable risks are fine' },
+    { value: 'aggressive', label: 'Aggressive - Willing to try new things' },
+    { value: 'context', label: 'Depends on context - Flag risk level for me' },
+  ]},
+  
+  // Chapter 6: Problem Solving
+  { id: 'error-handling', chapter: 'problem-solving', question: 'When something goes wrong:', options: [
+    { value: 'fix-first', label: 'Fix first, explain only if I ask' },
+    { value: 'fix-brief', label: 'Fix with 1-line explanation' },
+    { value: 'diagnose', label: 'Diagnose first, then fix' },
+    { value: 'teach', label: 'Use it as a learning moment' },
+  ]},
+  
+  { id: 'ambiguity', chapter: 'problem-solving', question: 'When my request is ambiguous:', options: [
+    { value: 'assume', label: 'Make smart assumptions, note them briefly' },
+    { value: 'ask', label: 'Ask clarifying questions first' },
+    { value: 'both', label: 'Give answer with assumptions, ask if wrong' },
+    { value: 'multiple', label: 'Show multiple interpretations' },
+  ]},
+  
+  { id: 'depth', chapter: 'problem-solving', question: 'Research and depth preference:', options: [
+    { value: 'quick', label: 'Quick answer - I\'ll dig deeper if needed' },
+    { value: 'balanced', label: 'Balanced - Cover the essentials' },
+    { value: 'thorough', label: 'Thorough - Anticipate follow-ups' },
+    { value: 'comprehensive', label: 'Comprehensive - Give me everything' },
+  ]},
+  
+  // Chapter 7: Output Preferences
+  { id: 'formatting', chapter: 'output', question: 'Formatting preference:', options: [
+    { value: 'minimal', label: 'Minimal - Plain prose, rare formatting' },
+    { value: 'light', label: 'Light - Code blocks, occasional bullets' },
+    { value: 'structured', label: 'Structured - Headers and sections' },
+    { value: 'rich', label: 'Rich - Full formatting, tables when useful' },
+  ]},
+  
+  { id: 'length', chapter: 'output', question: 'Typical response length:', options: [
+    { value: 'brief', label: 'Brief - Short and punchy' },
+    { value: 'moderate', label: 'Moderate - Enough to be complete' },
+    { value: 'detailed', label: 'Detailed - Comprehensive coverage' },
+    { value: 'adaptive', label: 'Adaptive - Match the complexity' },
+  ]},
+  
+  { id: 'examples', chapter: 'output', question: 'Examples and illustrations:', options: [
+    { value: 'rarely', label: 'Rarely - Only when essential' },
+    { value: 'sometimes', label: 'Sometimes - When they add clarity' },
+    { value: 'often', label: 'Often - I learn from examples' },
+    { value: 'always', label: 'Always - Examples help me understand' },
+  ]},
+  
+  // Tech-specific output
+  { id: 'code-output', chapter: 'output', condition: { profession: 'tech' }, question: 'When showing code changes:', options: [
+    { value: 'diff', label: 'Only changed lines with minimal context' },
+    { value: 'block', label: 'The modified block/function only' },
+    { value: 'full', label: 'Full file with changes marked' },
+    { value: 'smart', label: 'Be smart about it based on scope' },
+  ]},
+  
+  // Chapter 8: Pet Peeves & Special
+  { id: 'peeves', chapter: 'peeves', question: 'What annoys you? (select all)', options: [
+    { value: 'fluff', label: '"Here\'s how you can..." - just answer!' },
+    { value: 'obvious', label: 'Explaining things I clearly know' },
+    { value: 'hedging', label: 'Excessive hedging and caveats' },
+    { value: 'verbose', label: 'Long-winded when brief would do' },
+    { value: 'repetition', label: 'Repeating what I said back to me' },
+    { value: 'disclaimer', label: 'Unnecessary disclaimers' },
+    { value: 'incomplete', label: 'Incomplete or placeholder answers' },
+    { value: 'generic', label: 'Generic answers ignoring context' },
+  ], multiple: true, allowOther: true },
+  
+  { id: 'special', chapter: 'peeves', question: 'Special behaviors you want? (select all)', options: [
+    { value: 'challenge', label: '🤔 Challenge my assumptions' },
+    { value: 'anticipate', label: '🔮 Anticipate follow-up needs' },
+    { value: 'pitfalls', label: '⚠️ Warn about common pitfalls' },
+    { value: 'alternatives', label: '💡 Suggest alternatives I didn\'t consider' },
+    { value: 'honest', label: '💬 Be brutally honest when needed' },
+    { value: 'encourage', label: '👏 Occasional encouragement' },
+    { value: 'questions', label: '❓ Ask good clarifying questions' },
+  ], multiple: true },
+  
+  // Tech-specific specials
+  { id: 'tech-special', chapter: 'peeves', condition: { profession: 'tech' }, question: 'Tech-specific preferences? (select all)', options: [
+    { value: 'prod-ready', label: 'Default to production-ready, not dev shortcuts' },
+    { value: 'security', label: 'Always flag security concerns' },
+    { value: 'performance', label: 'Consider performance implications' },
+    { value: 'cost', label: 'Consider cost implications (cloud, etc.)' },
+    { value: 'tests', label: 'Suggest tests when relevant' },
+    { value: 'docs', label: 'Include documentation/comments' },
+  ], multiple: true },
+];
+
+let started = false, currentQ = 0, answers = {}, otherText = {};
+
+function getVisibleQuestions() {
+  return baseQuestions.filter(q => {
+    if (!q.condition) return true;
+    for (const [key, val] of Object.entries(q.condition)) {
+      const answer = answers[key];
+      if (Array.isArray(val)) {
+        if (!val.includes(answer)) return false;
+      } else if (answer !== val) return false;
+    }
+    return true;
+  });
+}
+
+function getCurrentChapter() {
+  const questions = getVisibleQuestions();
+  if (currentQ >= questions.length) return null;
+  return questions[currentQ].chapter;
+}
+
+function generatePrompt() {
+  const lines = [];
+  const a = answers;
+  
+  // Opening line based on profession
+  const profMap = {
+    'tech': 'a technology professional',
+    'business': 'a business professional', 
+    'creative': 'a creative professional',
+    'legal': 'a legal professional',
+    'medical': 'a healthcare professional',
+    'academic': 'an academic/researcher',
+    'marketing': 'a marketing professional',
+    'finance': 'a finance professional',
+    'education': 'an educator',
+    'consulting': 'a consultant',
+    'student': 'a student',
+    'personal': 'someone'
+  };
+  
+  const subRoles = {
+    'devops-mlops': 'DevOps/MLOps Engineer', 'backend': 'Backend Engineer', 'frontend': 'Frontend Engineer',
+    'fullstack': 'Fullstack Engineer', 'ml-ai': 'ML/AI Engineer', 'data-engineer': 'Data Engineer',
+    'data-scientist': 'Data Scientist', 'mobile': 'Mobile Developer', 'security': 'Security Engineer',
+    'architect': 'Solutions Architect', 'product': 'Technical PM', 'qa': 'QA Engineer',
+    'executive': 'Executive', 'manager': 'Manager', 'analyst': 'Business Analyst',
+    'writer': 'Writer', 'copywriter': 'Copywriter', 'designer-ui': 'UI/UX Designer',
+    'attorney': 'Attorney', 'paralegal': 'Paralegal', 'corporate-counsel': 'Corporate Counsel'
+  };
+  
+  const subRole = a['tech-role'] || a['business-role'] || a['creative-role'] || a['legal-role'];
+  const roleLabel = subRoles[subRole] || profMap[a.profession] || a.profession;
+  
+  const expMap = { 'junior': 'early-career', 'mid': 'experienced', 'senior': 'senior', 'expert': 'expert-level', 'student': '' };
+  const exp = expMap[a.experience] || '';
+  
+  lines.push(`You are assisting ${exp ? 'an ' + exp : 'a'} ${roleLabel}.`);
+  
+  // Domain/Stack
+  const stacks = [...(a['tech-stack'] || []), ...(a['tech-tools'] || []), ...(a['business-domain'] || []), 
+                  ...(a['creative-domain'] || []), ...(a['legal-domain'] || []), ...(a['finance-domain'] || []),
+                  ...(a['marketing-domain'] || []), ...(a['academic-domain'] || []), ...(a['general-interests'] || [])];
+  if (stacks.length) {
+    const stackLabels = { 'python': 'Python', 'javascript': 'JavaScript/TypeScript', 'go': 'Go', 'rust': 'Rust',
+      'java': 'Java/Kotlin', 'k8s': 'Kubernetes', 'docker': 'Docker', 'aws': 'AWS', 'gcp': 'GCP', 'azure': 'Azure',
+      'terraform': 'Terraform/IaC', 'cicd': 'CI/CD', 'strategy': 'Strategy', 'operations': 'Operations',
+      'corporate': 'Corporate Law', 'litigation': 'Litigation', 'ip': 'IP', 'contracts': 'Contracts',
+      'writing': 'Writing', 'research': 'Research', 'analysis': 'Analysis' };
+    const labels = stacks.map(s => stackLabels[s] || s).slice(0, 8);
+    lines.push(`Expertise: ${labels.join(', ')}`);
+  }
+  lines.push('');
+  
+  // User Style
+  lines.push('USER STYLE:');
+  const styleMap = {
+    'overthinker': '- I tend to overthink. Cut through analysis paralysis with clear recommendations.',
+    'perfectionist': '- I\'m a perfectionist. Tell me when "good enough" is enough.',
+    'decisive': '- I move fast. Give me info, not hand-holding.',
+    'cautious': '- I\'m cautious. Acknowledge trade-offs but still recommend.',
+    'explorer': '- I like exploring options. Show alternatives but highlight the best.',
+    'pragmatic': '- I\'m pragmatic. Whatever works.',
+    'curious': '- I\'m curious. Brief "why" explanations are welcome.'
+  };
+  (a['thinking-style'] || []).forEach(s => { if (styleMap[s]) lines.push(styleMap[s]); });
+  
+  const confMap = { 'expert': '- Treat me as a peer. Skip basics.', 'confident': '- I know my domain but have gaps.',
+    'growing': '- Still learning. Brief context on complex topics.', 'learning': '- More guidance welcome.' };
+  if (confMap[a.confidence]) lines.push(confMap[a.confidence]);
+  
+  const paceMap = { 'ship-it': '- Bias toward shipping. Done > perfect.', 'balanced': '- Balance speed and quality.',
+    'thorough': '- I prefer getting it right first time.', 'depends': '- Adjust to stakes. Tell me when to slow down.' };
+  if (paceMap[a.pace]) lines.push(paceMap[a.pace]);
+  lines.push('');
+  
+  // Communication
+  lines.push('COMMUNICATION:');
+  const verbMap = { 'minimal': '- Extremely concise. Answer only.', 'terse': '- Terse. Answer first, brief explanation after.',
+    'balanced': '- Balanced explanations.', 'detailed': '- Thorough with context.' };
+  if (verbMap[a.verbosity]) lines.push(verbMap[a.verbosity]);
+  
+  const toneMap = { 'casual': '- Casual tone, like a smart coworker.', 'professional': '- Professional but friendly.',
+    'formal': '- Formal and structured.', 'direct': '- Direct and blunt.', 'warm': '- Warm and encouraging.' };
+  if (toneMap[a.tone]) lines.push(toneMap[a.tone]);
+  
+  const emojiMap = { 'never': '- No emojis.', 'rare': '- Rare emojis, only for emphasis.',
+    'moderate': '- Moderate emojis OK.', 'frequent': '- Emojis welcome.' };
+  if (emojiMap[a.emoji]) lines.push(emojiMap[a.emoji]);
+  
+  if (a.language && a.language !== 'english-us' && a.language !== 'match-me') {
+    lines.push(`- Use ${a.language} spelling/conventions.`);
+  }
+  lines.push('');
+  
+  // Decision Making
+  lines.push('DECISION MAKING:');
+  const optMap = { 'pick-one': '- Multiple approaches: pick the best, 1-2 sentence reason.', 
+    'pick-mention': '- Pick one but mention alternatives briefly.',
+    'show-few': '- Show 2-3 options with trade-offs.', 'comprehensive': '- Comprehensive comparison.' };
+  if (optMap[a['options-handling']]) lines.push(optMap[a['options-handling']]);
+  
+  const stuckMap = { 'blunt': '- If I\'m spinning: "This doesn\'t matter. Do X."',
+    'nudge': '- If stuck: nudge with clear recommendation.',
+    'framework': '- If stuck: quick decision framework.', 'let-me': '- Let me work through it.' };
+  if (stuckMap[a['when-stuck']]) lines.push(stuckMap[a['when-stuck']]);
+  
+  const riskMap = { 'conservative': '- Conservative approaches preferred.', 'moderate': '- Moderate risk is fine.',
+    'aggressive': '- Open to new/experimental approaches.', 'context': '- Flag risk level for me.' };
+  if (riskMap[a['risk-tolerance']]) lines.push(riskMap[a['risk-tolerance']]);
+  lines.push('');
+  
+  // Problem Solving
+  lines.push('PROBLEM SOLVING:');
+  const errMap = { 'fix-first': '- Fix first, explain if asked.', 'fix-brief': '- Fix with 1-line explanation.',
+    'diagnose': '- Diagnose then fix.', 'teach': '- Use problems as learning moments.' };
+  if (errMap[a['error-handling']]) lines.push(errMap[a['error-handling']]);
+  
+  const ambMap = { 'assume': '- Make smart assumptions, note briefly.', 'ask': '- Ask clarifying questions first.',
+    'both': '- Answer with assumptions, ask if wrong.', 'multiple': '- Show multiple interpretations.' };
+  if (ambMap[a.ambiguity]) lines.push(ambMap[a.ambiguity]);
+  
+  const depthMap = { 'quick': '- Quick answers. I\'ll dig deeper if needed.', 'balanced': '- Cover essentials.',
+    'thorough': '- Anticipate follow-ups.', 'comprehensive': '- Comprehensive coverage.' };
+  if (depthMap[a.depth]) lines.push(depthMap[a.depth]);
+  lines.push('');
+  
+  // Output
+  lines.push('OUTPUT:');
+  const fmtMap = { 'minimal': '- Minimal formatting. Plain prose.', 'light': '- Light formatting. Code blocks, occasional bullets.',
+    'structured': '- Structured with headers/sections.', 'rich': '- Rich formatting, tables when useful.' };
+  if (fmtMap[a.formatting]) lines.push(fmtMap[a.formatting]);
+  
+  const lenMap = { 'brief': '- Keep responses brief.', 'moderate': '- Moderate length.',
+    'detailed': '- Detailed responses.', 'adaptive': '- Adaptive length based on complexity.' };
+  if (lenMap[a.length]) lines.push(lenMap[a.length]);
+  
+  const exMap = { 'rarely': '- Examples rarely.', 'sometimes': '- Examples when they add clarity.',
+    'often': '- Include examples often.', 'always': '- Always include examples.' };
+  if (exMap[a.examples]) lines.push(exMap[a.examples]);
+  
+  const codeMap = { 'diff': '- Code changes: only changed lines.', 'block': '- Code changes: modified block only.',
+    'full': '- Code changes: full file.', 'smart': '- Code changes: adapt to scope.' };
+  if (codeMap[a['code-output']]) lines.push(codeMap[a['code-output']]);
+  lines.push('');
+  
+  // Avoid
+  const peeves = a.peeves || [];
+  if (peeves.length) {
+    lines.push('AVOID:');
+    const peeveMap = { 'fluff': '- Never "Here\'s how you can..." - just answer.',
+      'obvious': '- Don\'t explain obvious things.', 'hedging': '- Minimize hedging and caveats.',
+      'verbose': '- Don\'t be verbose when brief works.', 'repetition': '- Don\'t repeat what I said.',
+      'disclaimer': '- Skip unnecessary disclaimers.', 'incomplete': '- No placeholder answers.',
+      'generic': '- Don\'t ignore my context.' };
+    peeves.forEach(p => { if (peeveMap[p]) lines.push(peeveMap[p]); else if (p) lines.push(`- ${p}`); });
+    lines.push('');
+  }
+  
+  // Special behaviors
+  const specials = [...(a.special || []), ...(a['tech-special'] || [])];
+  if (specials.length) {
+    lines.push('SPECIAL:');
+    const specMap = { 'challenge': '- Challenge my assumptions.', 'anticipate': '- Anticipate follow-up needs.',
+      'pitfalls': '- Warn about pitfalls.', 'alternatives': '- Suggest alternatives.',
+      'honest': '- Be brutally honest when needed.', 'encourage': '- Occasional encouragement.',
+      'questions': '- Ask good clarifying questions.',
+      'prod-ready': '- Default to production-ready configs.', 'security': '- Flag security concerns.',
+      'performance': '- Consider performance.', 'cost': '- Consider cost implications.',
+      'tests': '- Suggest tests when relevant.', 'docs': '- Include documentation.' };
+    specials.forEach(s => { if (specMap[s]) lines.push(specMap[s]); });
+  }
+  
+  return lines.join('\n');
+}
+
+function render() {
+  const app = document.getElementById('app');
+  
+  if (!started) {
+    app.innerHTML = `
+      <div class="start-screen">
+        <h1>AI Prompt Generator</h1>
+        <p>Create a personalized system prompt that makes AI assistants work exactly how you like.</p>
+        <div class="time-estimate">⏱️ Takes 10-15 minutes</div>
+        <div class="features">
+          <div class="feature"><div class="feature-icon">🎯</div><h3>Personalized</h3><p>Adapts to your profession and style</p></div>
+          <div class="feature"><div class="feature-icon">⚡</div><h3>Comprehensive</h3><p>Covers communication, decisions, output</p></div>
+          <div class="feature"><div class="feature-icon">📋</div><h3>Ready to Use</h3><p>Copy directly to Cursor, Claude, ChatGPT</p></div>
+        </div>
+        <button class="btn btn-next" onclick="start()">Start Survey →</button>
+      </div>`;
+    return;
+  }
+  
+  const questions = getVisibleQuestions();
+  
+  if (currentQ >= questions.length) {
+    const prompt = generatePrompt();
+    app.innerHTML = `
+      <div class="result"><h1>Your System Prompt</h1><p>Copy this to your AI assistant settings (Cursor, Claude, ChatGPT, etc.)</p></div>
+      <div class="prompt-box"><div class="prompt-text">${prompt.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>
+      <div class="nav">
+        <button class="btn btn-copy" onclick="copyPrompt()">Copy to Clipboard</button>
+        <button class="btn btn-reset" onclick="reset()">Start Over</button>
+      </div>`;
+    return;
+  }
+  
+  const q = questions[currentQ];
+  const chapter = chapters.find(c => c.id === q.chapter);
+  const chapterIndex = chapters.findIndex(c => c.id === q.chapter);
+  const progress = ((currentQ + 1) / questions.length) * 100;
+  const answer = answers[q.id];
+  const canProceed = q.multiple ? (answer && answer.length > 0) : (answer !== undefined && answer !== '');
+  
+  let optionsHtml = q.options.map(opt => {
+    const isSelected = q.multiple ? (answer || []).includes(opt.value) : answer === opt.value;
+    const indicator = q.multiple ? `<div class="checkbox"><span class="checkmark">✓</span></div>` : `<div class="radio"><div class="radio-dot"></div></div>`;
+    return `<button class="option ${isSelected ? 'selected' : ''}" onclick="select('${opt.value}')">${indicator}${opt.label}</button>`;
+  }).join('');
+  
+  if (q.allowOther) {
+    const isOtherSelected = otherText[q.id];
+    const indicator = q.multiple ? `<div class="checkbox"><span class="checkmark">✓</span></div>` : `<div class="radio"><div class="radio-dot"></div></div>`;
+    optionsHtml += `<div class="option ${isOtherSelected ? 'selected' : ''}">${indicator}
+      <input class="other-input" type="text" placeholder="Other..." value="${otherText[q.id] || ''}" oninput="setOther(this.value)"></div>`;
+  }
+  
+  app.innerHTML = `
+    <div class="chapter-nav">${chapters.map((c, i) => 
+      `<div class="chapter-dot ${i === chapterIndex ? 'active' : ''} ${i < chapterIndex ? 'completed' : ''}"></div>`
+    ).join('')}</div>
+    <div class="chapter-label">${chapter.title}</div>
+    <div class="progress-bar">
+      <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+    </div>
+    <h2 class="question">${q.question}</h2>
+    ${q.hint ? `<p class="question-hint">${q.hint}</p>` : ''}
+    <div class="options">${optionsHtml}</div>
+    ${q.multiple ? '<p class="hint">Select all that apply</p>' : ''}
+    <div class="nav">
+      <button class="btn btn-back" onclick="prev()" ${currentQ === 0 ? 'disabled' : ''}>Back</button>
+      <button class="btn btn-next" onclick="next()" ${!canProceed ? 'disabled' : ''}>${currentQ === questions.length - 1 ? 'Generate Prompt' : 'Continue'}</button>
+    </div>`;
+}
+
+function start() { started = true; render(); }
+
+function select(value) {
+  const q = getVisibleQuestions()[currentQ];
+  if (q.multiple) {
+    const current = answers[q.id] || [];
+    answers[q.id] = current.includes(value) ? current.filter(v => v !== value) : [...current, value];
+  } else {
+    answers[q.id] = value;
+    otherText[q.id] = '';
+  }
+  render();
+}
+
+function setOther(text) {
+  const q = getVisibleQuestions()[currentQ];
+  otherText[q.id] = text;
+  if (text) {
+    if (q.multiple) {
+      const current = answers[q.id] || [];
+      const filtered = current.filter(v => q.options.find(o => o.value === v));
+      answers[q.id] = [...filtered, text];
+    } else {
+      answers[q.id] = text;
+    }
+  }
+  render();
+}
+
+function next() { 
+  const questions = getVisibleQuestions();
+  if (currentQ < questions.length) { currentQ++; render(); window.scrollTo(0, 0); }
+}
+function prev() { if (currentQ > 0) { currentQ--; render(); window.scrollTo(0, 0); } }
+function reset() { started = false; currentQ = 0; answers = {}; otherText = {}; render(); }
+function copyPrompt() {
+  navigator.clipboard.writeText(generatePrompt());
+  document.querySelector('.btn-copy').textContent = '✓ Copied!';
+  setTimeout(() => { document.querySelector('.btn-copy').textContent = 'Copy to Clipboard'; }, 2000);
+}
+
+render();
+  </script>
+</body>
+</html>
